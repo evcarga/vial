@@ -1,0 +1,22 @@
+{
+  "name": "Vial Quito",
+  "short_name": "Vial",
+  "description": "Pico y placa, vencimientos y reportes de tránsito en vivo en Quito.",
+  "id": "/vial/",
+  "start_url": "/vial/?pwa=1",
+  "scope": "/vial/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "es-EC",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Reportar", "url": "/vial/?reportar=1", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mapa", "url": "/vial/?tab=mapa", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

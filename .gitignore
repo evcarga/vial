@@ -1,0 +1,12 @@
+# Nunca subir claves ni llaves de firma
+.secretos/
+*.p12
+*.jks
+*.keystore
+.env
+credenciales*.txt
+# Compilación Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

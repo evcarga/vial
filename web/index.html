@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vial Quito · Pico y placa y reportes de tránsito en vivo</title>
+<meta name="description" content="¿Puedo circular hoy? Pico y placa de Quito con cuenta regresiva, recordatorio de matrícula y revisión, y mapa en vivo de tráfico, accidentes, controles y vías cerradas reportados por la comunidad.">
+<meta name="theme-color" content="#0f172a">
+<link rel="canonical" href="https://evcarga.github.io/vial/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Vial Quito · ¿Puedo circular hoy?">
+<meta property="og:description" content="Pico y placa, vencimientos y mapa en vivo de tráfico, accidentes y controles en Quito.">
+<meta property="og:url" content="https://evcarga.github.io/vial/">
+<meta property="og:image" content="https://evcarga.github.io/vial/icons/icon-512.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="icons/icon-192.png" alt="" width="28" height="28"><b>Vial</b><span>Quito</span></div>
+  <a class="ev" href="https://evcarga.github.io/" target="_blank" rel="noopener">⚡ Cargadores</a>
+</header>
+
+<div id="banner-update" class="banner hidden">
+  <span id="banner-update-txt">📲 Hay una nueva versión de la app.</span>
+  <a id="banner-update-btn" class="btn sm amber" href="#">Actualizar</a>
+</div>
+
+<main>
+  <!-- ================= HOY ================= -->
+  <section id="tab-hoy" class="tab active">
+    <div class="card pp">
+      <div class="muted small" id="pp-fecha">Quito</div>
+      <h1 id="pp-titulo">Pico y placa</h1>
+      <div id="pp-digitos" class="digitos"></div>
+      <div id="pp-estado" class="estado"></div>
+      <div class="muted small" id="pp-franjas"></div>
+    </div>
+
+    <div class="card">
+      <h2>¿Puedo circular?</h2>
+      <form id="form-placa" class="row">
+        <input id="placa-rapida" placeholder="Tu placa, ej. PBA-1234" maxlength="9" autocomplete="off" autocapitalize="characters">
+        <button class="btn">Ver</button>
+      </form>
+      <div id="placa-resultado"></div>
+      <div id="mis-vehiculos-hoy"></div>
+    </div>
+
+    <div class="card">
+      <h2>Esta semana</h2>
+      <div id="pp-semana" class="semana"></div>
+      <p class="muted small">Feriados, sábados y domingos: libre circulación. Exentos según la AMT (p. ej. adultos mayores, personas con discapacidad, vehículos oficiales); marca "exento" en tu vehículo solo si te corresponde.</p>
+    </div>
+
+    <div class="card" id="card-vencimientos">
+      <div class="row between"><h2>Vencimientos</h2><button class="btn sm ghost" data-need-login onclick="abrirVencimiento()">+ Agregar</button></div>
+      <div id="lista-vencimientos" class="lista"></div>
+      <p class="muted small">Te avisamos 15 y 3 días antes (notificación o Telegram).</p>
+    </div>
+
+    <div class="card">
+      <h2>Multas</h2>
+      <div class="grid2">
+        <a class="btn ghost" href="https://www.amt.gob.ec/" target="_blank" rel="noopener">AMT Quito</a>
+        <a class="btn ghost" href="https://www.ant.gob.ec/" target="_blank" rel="noopener">ANT Ecuador</a>
+      </div>
+      <p class="muted small">Se abre la página oficial. Busca por placa o cédula.</p>
+    </div>
+
+    <div class="card">
+      <div class="grid2">
+        <a class="btn ev-btn" href="https://evcarga.github.io/" target="_blank" rel="noopener">⚡ Mapa de cargadores</a>
+        <button class="btn ghost" onclick="compartirApp()">📤 Compartir Vial</button>
+      </div>
+      <a id="btn-apk" class="btn amber full hidden" href="https://github.com/evcarga/vial/releases/latest/download/vial.apk">📲 Descargar app Android</a>
+      <button id="btn-instalar" class="btn ghost full hidden">➕ Instalar en este teléfono</button>
+    </div>
+  </section>
+
+  <!-- ================= MAPA ================= -->
+  <section id="tab-mapa" class="tab">
+    <div id="map"></div>
+    <div class="map-tools">
+      <button class="chip" onclick="centrarEnMi()">📍 Mi ubicación</button>
+      <button class="chip" id="btn-cerca" onclick="toggleCerca()">📋 Cerca de mí</button>
+      <button class="chip" onclick="abrirRadar(false)">📸 Sugerir radar</button>
+    </div>
+    <div id="cerca" class="sheet-list hidden"></div>
+  </section>
+
+  <!-- ================= CUENTA ================= -->
+  <section id="tab-cuenta" class="tab">
+    <div id="cuenta-anon">
+      <div class="card">
+        <h2>Ingresa a Vial</h2>
+        <p class="muted small">Para ver el mapa no necesitas cuenta. Para reportar, guardar tus vehículos y recibir avisos, sí.</p>
+        <button class="btn google full" onclick="loginGoogle()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" width="18" height="18"> Continuar con Google</button>
+        <div class="sep"><span>o con PIN</span></div>
+        <form id="form-auth">
+          <label id="lbl-nombre" class="hidden">Primer nombre<input id="auth-nombre" maxlength="40" autocomplete="given-name"></label>
+          <label>Correo o WhatsApp<input id="auth-contacto" placeholder="tu@correo.com o 09XXXXXXXX" autocomplete="username" required></label>
+          <p class="muted small">¿No tienes correo? Escribe tu número de WhatsApp.</p>
+          <label>PIN de 4 dígitos<input id="auth-pin" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="current-password" required></label>
+          <label id="lbl-pin2" class="hidden">Repite el PIN<input id="auth-pin2" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="new-password"></label>
+          <div id="auth-error" class="error"></div>
+          <button class="btn full" id="btn-auth">Ingresar</button>
+        </form>
+        <p class="center small"><a href="#" id="toggle-auth">¿Nuevo? Crear cuenta</a></p>
+        <p class="muted small">Solo pedimos tu primer nombre, tu correo o WhatsApp y un PIN. Tras 3 PIN incorrectos la cuenta se bloquea un tiempo.</p>
+      </div>
+    </div>
+
+    <div id="cuenta-user" class="hidden">
+      <div class="card">
+        <div class="row between"><h2>Hola, <span id="u-nombre"></span> 👋</h2><button class="btn sm ghost" onclick="editarNombre()">Editar</button></div>
+        <div class="muted small" id="u-contacto"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between"><h2>Mis vehículos</h2><button class="btn sm ghost" onclick="abrirVehiculo()">+ Agregar</button></div>
+        <div id="lista-vehiculos" class="lista"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between"><h2>Mis zonas de alerta</h2><button class="btn sm ghost" onclick="abrirZona()">+ Agregar</button></div>
+        <div id="lista-zonas" class="lista"></div>
+        <p class="muted small">Solo te avisamos de reportes dentro de tus zonas (casa, trabajo, tu ruta).</p>
+      </div>
+
+      <div class="card">
+        <h2>Avisos</h2>
+        <label class="switch"><input type="checkbox" id="sw-push"> Notificaciones en este teléfono</label>
+        <label class="switch"><input type="checkbox" id="sw-noche"> Aviso la noche anterior (pico y placa y vencimientos)</label>
+        <div class="row between top-gap"><span>Telegram</span><button class="btn sm ghost" id="btn-telegram" onclick="vincularTelegram()">Vincular</button></div>
+        <p class="muted small" id="telegram-txt">Respaldo para iPhone o si prefieres Telegram.</p>
+      </div>
+
+      <div class="card">
+        <h2>🏆 Ranking semanal</h2>
+        <div id="ranking" class="lista"></div>
+        <p class="muted small">Ganas puntos cuando otros confirman tus reportes y cuando confirmas los de otros.</p>
+      </div>
+
+      <div class="card">
+        <div class="grid2">
+          <button class="btn ghost" onclick="cambiarPin()">Cambiar PIN</button>
+          <button class="btn ghost" onclick="salir()">Cerrar sesión</button>
+        </div>
+      </div>
+
+      <!-- ===== ADMIN ===== -->
+      <div id="admin" class="hidden">
+        <div class="card admin">
+          <h2>🛠️ Admin · Reportes</h2>
+          <div id="adm-reportes" class="lista"></div>
+        </div>
+        <div class="card admin">
+          <h2>🛠️ Admin · Usuarios</h2>
+          <input id="adm-buscar" placeholder="Buscar nombre o contacto" oninput="pintarUsuarios()">
+          <div id="adm-usuarios" class="lista"></div>
+        </div>
+        <div class="card admin">
+          <div class="row between"><h2>🛠️ Admin · Radares fijos</h2><button class="btn sm ghost" onclick="abrirRadar(true)">+ En el mapa</button></div>
+          <div id="adm-radares" class="lista"></div>
+        </div>
+        <div class="card admin">
+          <h2>🛠️ Admin · Feriados (sin pico y placa)</h2>
+          <form id="form-feriado" class="row"><input type="date" id="fer-fecha" required><input id="fer-nombre" placeholder="Nombre" required maxlength="40"><button class="btn sm">+</button></form>
+          <div id="adm-feriados" class="lista"></div>
+        </div>
+        <div class="card admin">
+          <h2>🛠️ Admin · Telegram</h2>
+          <form id="form-tg" class="row"><input id="tg-bot" placeholder="usuario_del_bot (sin @)"><button class="btn sm">Guardar</button></form>
+        </div>
+        <div class="card admin">
+          <h2>🛠️ Admin · App Android</h2>
+          <div id="adm-versiones" class="lista"></div>
+          <form id="form-version">
+            <label>Novedades de la nueva versión<textarea id="ver-notas" maxlength="500" rows="2" placeholder="Qué cambió"></textarea></label>
+            <label class="switch"><input type="checkbox" id="ver-obligatoria"> Actualización obligatoria</label>
+            <button class="btn full amber">Compilar y enviar actualización</button>
+          </form>
+          <p class="muted small">GitHub compila la APK (unos 5 min) y luego se avisa a todos por notificación y Telegram.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="center small"><a href="privacidad.html">Privacidad y reglas</a> · <a href="https://evcarga.github.io/">EvCarga Ecuador</a></p>
+  </section>
+</main>
+
+<!-- Barra inferior -->
+<nav class="bottom">
+  <button data-tab="hoy" class="active"><span>🚦</span>Hoy</button>
+  <button data-tab="mapa"><span>🗺️</span>Mapa</button>
+  <button class="reportar" onclick="abrirReportar()"><span>＋</span>Reportar</button>
+  <button data-tab="cuenta"><span>👤</span>Cuenta</button>
+</nav>
+
+<!-- Hoja: reportar (2 toques) -->
+<div id="hoja-reportar" class="modal hidden" onclick="if(event.target===this)cerrar(this)">
+  <div class="sheet">
+    <div class="row between"><h2>¿Qué pasa?</h2><button class="x" onclick="cerrar('hoja-reportar')">✕</button></div>
+    <div class="tipos" id="tipos"></div>
+    <p class="muted small">Se usa tu ubicación actual. 🚫 Nada de fotos de heridos ni de rostros.</p>
+  </div>
+</div>
+
+<!-- Hoja: reporte enviado -->
+<div id="hoja-enviado" class="modal hidden" onclick="if(event.target===this)cerrar(this)">
+  <div class="sheet">
+    <div class="row between"><h2>✅ Reporte enviado</h2><button class="x" onclick="cerrar('hoja-enviado')">✕</button></div>
+    <p class="muted small" id="enviado-txt"></p>
+    <label>Comentario (opcional)<input id="env-coment" maxlength="280" placeholder="Ej. carril derecho cerrado"></label>
+    <label class="btn ghost full">📷 Agregar foto (opcional)<input id="env-foto" type="file" accept="image/*" capture="environment" hidden></label>
+    <img id="env-prev" class="prev hidden" alt="">
+    <p class="muted small">🚫 Nada de fotos de heridos ni de rostros.</p>
+    <div class="grid2">
+      <button class="btn" id="env-guardar">Guardar</button>
+      <button class="btn wa" id="env-wa">Compartir al grupo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hoja genérica de formularios -->
+<div id="hoja-form" class="modal hidden" onclick="if(event.target===this)cerrar(this)">
+  <div class="sheet">
+    <div class="row between"><h2 id="form-titulo"></h2><button class="x" onclick="cerrar('hoja-form')">✕</button></div>
+    <form id="form-generico"></form>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

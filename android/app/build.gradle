@@ -1,0 +1,32 @@
+// App Android de Vial: Trusted Web Activity que abre https://evcarga.github.io/vial/ en Chrome a pantalla completa.
+// La web se actualiza sola; la APK solo cambia cuando se publica una versión nueva desde el admin.
+plugins { id 'com.android.application' }
+
+def vc = (project.findProperty('versionCode') ?: '1') as int
+def vn = (project.findProperty('versionName') ?: '1.0') as String
+
+android {
+    namespace 'io.github.evcarga.vial'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'io.github.evcarga.vial'
+        minSdk 21
+        targetSdk 34
+        versionCode vc
+        versionName vn
+        manifestPlaceholders = [defaultUrl: "https://evcarga.github.io/vial/?app=1&v=${vc}"]
+    }
+    signingConfigs {
+        release {
+            storeFile file(System.getenv('KS_PATH') ?: 'vial.p12')
+            storeType 'pkcs12'
+            storePassword System.getenv('KS_PASS')
+            keyAlias 'vial'
+            keyPassword System.getenv('KS_PASS')
+        }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies { implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0' }
