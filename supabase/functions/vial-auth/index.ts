@@ -63,10 +63,10 @@ async function setIntento(id: string, v: Record<string, unknown>) {
   });
 }
 
-async function ensurePerfil(userId: string, nombre: string | null, whatsapp?: string) {
+async function ensurePerfil(userId: string, nombre: string | null, whatsapp?: string, origen?: string) {
   await rest('vial_perfiles?on_conflict=user_id', {
     method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates' },
-    body: JSON.stringify({ user_id: userId, nombre: nombre ? nombre.slice(0, 40) : null, whatsapp: whatsapp || null }),
+    body: JSON.stringify({ user_id: userId, nombre: nombre ? nombre.slice(0, 40) : null, whatsapp: whatsapp || null, origen: ['web', 'app', 'pwa'].includes(origen || '') ? origen : null }),
   });
 }
 
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       return reply({ error: 'No se pudo crear la cuenta' }, 500);
     }
     const u = await r.json();
-    await ensurePerfil(u.id, nombre, c.whatsapp);
+    await ensurePerfil(u.id, nombre, c.whatsapp, body.origen);
     const s = await passwordLogin(c.email, await hmac(`${c.id}:${pin}`));
     return reply({ access_token: s?.access_token, refresh_token: s?.refresh_token });
   }

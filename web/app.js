@@ -44,6 +44,11 @@ function haceTxt(iso) {
   const h = Math.floor(m / 60); if (h < 24) return `hace ${h} h${m % 60 ? ` ${m % 60} min` : ''}`;
   return `hace ${Math.floor(h / 24)} d`;
 }
+// Fecha y hora del reporte en Quito, ej. "6 nov, 17:42"
+function fechaTxt(iso) {
+  const d = new Date(new Date(iso).getTime() - 5 * 3600e3);
+  return `${d.getUTCDate()} ${MESES[d.getUTCMonth()].slice(0, 3)}, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
 function dur(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`; }
 const km = (a, b, c, d) => { const r = Math.PI / 180, h = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * 6371 * Math.asin(Math.sqrt(h)); };
 const normPlaca = (p) => String(p || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '');
@@ -152,7 +157,7 @@ $('form-auth').addEventListener('submit', async (e) => {
   e.preventDefault(); $('auth-error').textContent = '';
   const contacto = $('auth-contacto').value.trim(), pin = $('auth-pin').value.trim();
   if (!/^\d{4}$/.test(pin)) return ($('auth-error').textContent = 'El PIN debe tener 4 dígitos');
-  const body = { accion: modoRegistro ? 'registro' : 'ingreso', contacto, pin };
+  const body = { accion: modoRegistro ? 'registro' : 'ingreso', contacto, pin, origen: origen() };
   if (modoRegistro) {
     body.nombre = $('auth-nombre').value.trim();
     if (!body.nombre) return ($('auth-error').textContent = 'Escribe tu primer nombre');
@@ -182,7 +187,7 @@ async function alCambiarSesion(session) {
   if (!p) {
     const md = S.user.user_metadata || {};
     const nombre = String(md.nombre || md.full_name || md.name || '').split(' ')[0].slice(0, 40) || null;
-    await sb.from('vial_perfiles').insert({ user_id: S.user.id, nombre });
+    await sb.from('vial_perfiles').insert({ user_id: S.user.id, nombre, origen: origen() });
     ({ data: p } = await sb.from('vial_perfiles').select('*').eq('user_id', S.user.id).maybeSingle());
   }
   S.perfil = p || {};
@@ -322,7 +327,7 @@ async function cargarVotos() {
 function popupHtml(r) {
   const t = TIPOS[r.tipo]; const mio = S.user && r.user_id === S.user.id; const voto = S.votos[r.id];
   return `<div class="pop"><h3>${t.e} ${t.n}</h3>
-    <p class="muted small">${esc(r.zona || '')} · ${haceTxt(r.creado)}${r.autor ? ` · ${esc(r.autor)}` : ''}${r.origen === 'telegram' ? ' · vía Telegram' : ''}</p>
+    <p class="muted small">${esc(r.zona || '')}</p><p class="small">🕒 ${fechaTxt(r.creado)} (${haceTxt(r.creado)})${r.autor ? ` · ${esc(r.autor)}` : ''}${r.origen === 'telegram' ? ' · vía Telegram' : ''}</p>
     ${r.descripcion ? `<p>${esc(r.descripcion)}</p>` : ''}${r.foto ? `<img src="${fotoUrl(r.foto)}" alt="Foto del reporte" loading="lazy">` : ''}
     <p class="small">👍 ${r.confirmaciones} siguen · 👎 ${r.negaciones} ya no</p>
     <div class="row">${mio ? `<button class="btn sm danger" onclick="borrarReporte(${r.id})">Borrar</button>`
@@ -352,7 +357,7 @@ function pintarCerca() {
   const l = S.reportes.map((r) => ({ r, d: km(ref[0], ref[1], r.lat, r.lng) }))
     .sort((a, b) => (a.d + (Date.now() - new Date(a.r.creado)) / 3.6e6) - (b.d + (Date.now() - new Date(b.r.creado)) / 3.6e6)).slice(0, 40);
   el.innerHTML = `<div class="row between"><b>Cerca de ${S.pos ? 'mí' : 'el centro del mapa'}</b><button class="x" onclick="toggleCerca()">✕</button></div>` +
-    (l.length ? `<div class="lista">${l.map(({ r, d }) => `<div onclick="enfocarReporte(${r.id})"><span>${TIPOS[r.tipo].e} <b>${TIPOS[r.tipo].n}</b><br><span class="muted small">${esc(r.zona || '')} · ${haceTxt(r.creado)}</span></span><span class="small">${d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km'}</span></div>`).join('')}</div>`
+    (l.length ? `<div class="lista">${l.map(({ r, d }) => `<div onclick="enfocarReporte(${r.id})"><span>${TIPOS[r.tipo].e} <b>${TIPOS[r.tipo].n}</b><br><span class="muted small">${esc(r.zona || '')} · ${fechaTxt(r.creado)} (${haceTxt(r.creado)})</span></span><span class="small">${d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km'}</span></div>`).join('')}</div>`
       : '<p class="vacio">No hay reportes activos. ¡Sé el primero en reportar!</p>');
 }
 function ubicar(centrar = true) {
@@ -554,12 +559,13 @@ async function cargarAdmin() {
     sb.from('vial_config').select('valor').eq('clave', 'telegram_bot').maybeSingle(),
     sb.from('vial_sugerencias').select('*').order('leida').order('id', { ascending: false }).limit(50),
   ]);
+  pintarEstadisticas();
   const waLink = (n) => { let d = String(n).replace(/\D/g, ''); if (/^09\d{8}$/.test(d)) d = '593' + d.slice(1); return `https://wa.me/${d}`; };
   $('adm-sugerencias').innerHTML = (sug.data || []).map((s) => `<div><span>${s.leida ? '' : '🆕 '}<b>${esc(s.nombre || 'Anónimo')}</b> · <span class="muted small">${haceTxt(s.creado)}</span><br>${esc(s.mensaje)}${s.whatsapp ? `<br><a href="${waLink(s.whatsapp)}" target="_blank" rel="noopener">📞 ${esc(s.whatsapp)}</a>` : ''}</span>
     <span class="acc">${s.leida ? '' : `<button class="btn sm ghost" onclick="admLeida(${s.id})">Leída</button>`}<button class="btn sm danger" onclick="borrar('vial_sugerencias',${s.id},cargarAdmin)">✕</button></span></div>`).join('') || '<div class="vacio">Sin sugerencias</div>';
   $('adm-reportes').innerHTML = (rep.data || []).map((r) => {
     const activo = new Date(r.expira) > new Date();
-    return `<div><span>${TIPOS[r.tipo].e} #${r.id} ${esc(r.zona || '')}<br><span class="muted small">${haceTxt(r.creado)} · ${esc(r.autor || '?')}${r.origen === 'telegram' ? ' (TG)' : ''} · 👍${r.confirmaciones} 👎${r.negaciones} · ${r.oculto ? 'OCULTO' : activo ? 'activo' : 'expirado'}</span></span>
+    return `<div><span>${TIPOS[r.tipo].e} #${r.id} ${esc(r.zona || '')}<br><span class="muted small">${fechaTxt(r.creado)} · ${esc(r.autor || '?')}${r.origen === 'telegram' ? ' (TG)' : ''} · 👍${r.confirmaciones} 👎${r.negaciones} · ${r.oculto ? 'OCULTO' : activo ? 'activo' : 'expirado'}</span></span>
     <span class="acc"><button class="btn sm ghost" onclick="admOcultar(${r.id},${!r.oculto})">${r.oculto ? 'Mostrar' : 'Ocultar'}</button><button class="btn sm danger" onclick="borrar('vial_reportes',${r.id},cargarAdmin)">✕</button></span></div>`;
   }).join('') || '<div class="vacio">Sin reportes</div>';
   usuarios = us.data || []; pintarUsuarios();
@@ -573,6 +579,21 @@ function pintarUsuarios() {
   const q = ($('adm-buscar').value || '').toLowerCase();
   $('adm-usuarios').innerHTML = usuarios.filter((u) => !q || `${u.nombre} ${u.contacto}`.toLowerCase().includes(q)).slice(0, 50).map((u) => `<div><span><b>${esc(u.nombre || '—')}</b> ${u.bloqueado ? '⛔' : ''}<br><span class="muted small">${esc(u.contacto || '')} · ${u.reportes} reportes</span></span>
     <span class="acc"><button class="btn sm ghost" onclick="admPin('${u.user_id}')">PIN</button><button class="btn sm ${u.bloqueado ? '' : 'danger'}" onclick="admBloquear('${u.user_id}',${!u.bloqueado})">${u.bloqueado ? 'Desbloquear' : 'Bloquear'}</button></span></div>`).join('') || '<div class="vacio">Sin usuarios</div>';
+}
+async function pintarEstadisticas() {
+  const { data: e, error } = await sb.rpc('vial_admin_estadisticas'); if (error || !e) return;
+  const v = e.visitas, u = e.usuarios;
+  const t = (n, l) => `<div style="background:#f8fafc;border-radius:12px;padding:10px;text-align:center"><b style="font-size:22px">${n}</b><br><span class="muted small">${l}</span></div>`;
+  const max = Math.max(1, ...e.dias.map((d) => d.web + d.app));
+  $('adm-estadisticas').innerHTML = `
+    <div class="grid2">${t(v.hoy, 'visitas hoy')}${t(v.semana, 'visitas 7 días')}${t(v.unicos_semana, 'dispositivos 7 días')}${t(v.unicos_mes, 'dispositivos 30 días')}</div>
+    <p class="small">Últimos 30 días: <b>${v.web_mes}</b> web · <b>${v.app_mes}</b> app Android · <b>${v.pwa_mes}</b> instalada (PWA)</p>
+    <div class="grid2">${t(u.total, 'usuarios Vial')}${t(u.semana, 'nuevos 7 días')}</div>
+    <p class="small">Registro: <b>${u.desde_web}</b> desde la web · <b>${u.desde_app}</b> desde la app · <b>${u.con_google}</b> con Google · Reportes hoy: <b>${e.reportes_hoy}</b></p>
+    <div class="lista">${e.dias.map((d) => `<div><span class="small" style="width:52px">${d.dia.slice(8, 10)}/${d.dia.slice(5, 7)}</span>
+      <span style="flex:1;display:flex;height:12px;border-radius:6px;overflow:hidden;background:#f1f5f9"><i style="width:${d.web / max * 100}%;background:#2563eb"></i><i style="width:${d.app / max * 100}%;background:#f59e0b"></i></span>
+      <span class="small" style="width:110px;text-align:right">${d.web} web · ${d.app} app${d.registros ? ` · +${d.registros}👤` : ''}</span></div>`).join('')}</div>
+    <p class="muted small">Azul: web · Ámbar: app. 👤 = usuarios nuevos ese día.</p>`;
 }
 async function admLeida(id) { const { error } = await sb.from('vial_sugerencias').update({ leida: true }).eq('id', id); if (error) toast(errTxt(error)); cargarAdmin(); }
 async function admOcultar(id, oc) { const { error } = await sb.rpc('vial_admin_ocultar', { p_reporte: id, p_oculto: oc }); if (error) toast(errTxt(error)); cargarAdmin(); cargarReportes(); }
@@ -617,6 +638,15 @@ $('form-version').addEventListener('submit', async (e) => {
 // =====================================================================
 // APP ANDROID: descarga, instalación y actualizaciones
 // =====================================================================
+function origen() { return enApp() ? 'app' : matchMedia('(display-mode: standalone)').matches ? 'pwa' : 'web'; }
+// Una visita por sesión del navegador; id aleatorio del dispositivo (no es dato personal)
+async function registrarVisita() {
+  try {
+    if (sessionStorage.getItem('vial-visita')) return; sessionStorage.setItem('vial-visita', '1');
+    let v = ls.get('visitante'); if (!v) { v = crypto.randomUUID(); ls.set('visitante', v); }
+    await sb.from('vial_visitas').insert({ origen: origen(), visitante: v, pagina: (new URLSearchParams(location.search).get('tab') || 'hoy').slice(0, 60) });
+  } catch {}
+}
 function enApp() { return ls.get('app') === '1' || document.referrer.startsWith('android-app://'); }
 async function revisarVersion() {
   const { data } = await sb.from('vial_app_versiones').select('version_code,version_name,notas,obligatoria,apk_url').eq('estado', 'publicada').order('version_code', { ascending: false }).limit(1);
@@ -662,6 +692,7 @@ async function cargarReglas() {
   }).subscribe();
   setInterval(cargarReportes, 120000); // por si se pierde la conexión en vivo
   revisarVersion();
+  registrarVisita();
 
   if (qs.get('r')) enfocarReporte(Number(qs.get('r')));
   else if (qs.get('tab')) irA(qs.get('tab'));

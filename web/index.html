@@ -156,6 +156,10 @@
       <!-- ===== ADMIN ===== -->
       <div id="admin" class="hidden">
         <div class="card admin">
+          <div class="row between"><h2>📊 Admin · Visitas y usuarios</h2><button class="btn sm ghost" onclick="pintarEstadisticas()">↻</button></div>
+          <div id="adm-estadisticas"><div class="vacio">Cargando…</div></div>
+        </div>
+        <div class="card admin">
           <h2>🛠️ Admin · Sugerencias</h2>
           <div id="adm-sugerencias" class="lista"></div>
         </div>
@@ -211,7 +215,7 @@
   <div class="sheet">
     <div class="row between"><h2>¿Qué pasa?</h2><button class="x" onclick="cerrar('hoja-reportar')">✕</button></div>
     <div class="tipos" id="tipos"></div>
-    <p class="muted small">Se usa tu ubicación actual. 🚫 Nada de fotos de heridos ni de rostros.</p>
+    <p class="muted small">Se usa tu ubicación actual. Los reportes se borran solos a las 24 horas. 🚫 Nada de fotos de heridos ni de rostros.</p>
   </div>
 </div>
 

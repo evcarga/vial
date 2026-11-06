@@ -3,6 +3,9 @@
 //                              y avisa de nuevas versiones de la app.
 //   ?tarea=manana (6:30 Quito) resumen al grupo: dígitos de hoy y reportes activos.
 //   ?tarea=noche  (20:00 Quito) aviso personal: pico y placa de mañana y vencimientos a 15 y 3 días.
+//   ?tarea=limpieza (cada hora) borra los reportes de más de 24 h y sus fotos (guarda antes los puntos).
+// Los comentarios de los reportes se revisan con IA (Groq, secreto GROQ_API_KEY): si son ofensivos
+// o traen datos personales (teléfonos, placas con nombre, etc.) se quitan; el reporte se mantiene.
 // Telegram es opcional: si faltan TELEGRAM_BOT_TOKEN / TELEGRAM_GROUP_ID simplemente no se envía.
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
@@ -13,6 +16,7 @@ const GROUP = Deno.env.get('TELEGRAM_GROUP_ID');
 const VAPID_PUB = Deno.env.get('VIAL_VAPID_PUBLIC')!;
 const VAPID_PRIV = Deno.env.get('VIAL_VAPID_PRIVATE')!;
 const SITE = 'https://evcarga.github.io/vial/';
+const GROQ = Deno.env.get('GROQ_API_KEY');
 
 const srv = { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, 'Content-Type': 'application/json' };
 const db = async (path: string, init: RequestInit = {}) => {
@@ -107,7 +111,45 @@ const franjasTxt = (f: string) => f.split(',').map((x) => x.replace('-', ' a '))
 const ultimoDigito = (placa: string) => Number((placa.match(/\d(?=\D*$)/) || ['-1'])[0]);
 
 // ================= Tareas =================
+// ================= Moderación de comentarios con IA =================
+async function moderar() {
+  if (!GROQ) return 0;
+  const l = await db('vial_reportes?moderado=eq.false&descripcion=not.is.null&select=id,descripcion&order=id&limit=20');
+  for (const r of l) {
+    let ok = true;
+    try {
+      const g = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST', headers: { Authorization: `Bearer ${GROQ}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-20b', temperature: 0, max_completion_tokens: 300, reasoning_effort: 'low',
+          messages: [
+            { role: 'system', content: 'Moderas comentarios públicos de reportes de tránsito en Quito (tráfico, accidentes, controles, obras). Responde solo OK o BLOQUEAR. BLOQUEAR si tiene insultos, odio, contenido sexual, amenazas, spam o publicidad, o datos personales de alguien (teléfono, cédula, dirección de una persona, nombre completo de un tercero). Lenguaje coloquial o quejas del tráfico son OK.' },
+            { role: 'user', content: r.descripcion },
+          ],
+        }),
+      });
+      if (!g.ok) { console.error('groq', g.status); break; }   // sin cupo: se reintenta luego
+      ok = !/BLOQUEAR/i.test((await g.json()).choices?.[0]?.message?.content || '');
+    } catch (e) { console.error('groq', String(e)); break; }
+    await db(`vial_reportes?id=eq.${r.id}`, { method: 'PATCH', body: JSON.stringify(ok ? { moderado: true } : { moderado: true, descripcion: null }) });
+  }
+  return l.length;
+}
+
+// ================= Limpieza: reportes de más de 24 h =================
+async function limpieza() {
+  const r = await fetch(`${URL_}/rest/v1/rpc/vial_limpiar_reportes`, { method: 'POST', headers: srv, body: '{}' });
+  if (!r.ok) throw new Error('limpiar ' + r.status + ' ' + (await r.text()).slice(0, 150));
+  const fotos: string[] = await r.json();
+  if (fotos.length) {
+    const d = await fetch(`${URL_}/storage/v1/object/vial`, { method: 'DELETE', headers: srv, body: JSON.stringify({ prefixes: fotos }) });
+    if (!d.ok) console.error('fotos', d.status, (await d.text()).slice(0, 150));
+  }
+  return { fotos: fotos.length };
+}
+
 async function cada() {
+  const moderados = await moderar();
   // 1) Reportes nuevos → grupo de Telegram + alertas por zona
   const nuevos = await db(`vial_reportes?or=(publicado_tg.eq.false,notificado.eq.false)&oculto=eq.false&expira=gt.${new Date().toISOString()}&creado=gt.${new Date(Date.now() - 3600_000).toISOString()}&select=id,tipo,lat,lng,zona,descripcion,creado,user_id,origen,autor,publicado_tg,notificado&order=id&limit=30`);
   if (nuevos.length) {
@@ -145,7 +187,7 @@ async function cada() {
   // 3) Limpieza: códigos de Telegram y pendientes viejos
   await db(`vial_tg_vinculos?expira=lt.${new Date().toISOString()}`, { method: 'DELETE' });
   await db(`vial_tg_pendientes?creado=lt.${new Date(Date.now() - 900_000).toISOString()}`, { method: 'DELETE' });
-  return { reportes: nuevos.length, versiones: vers.length };
+  return { reportes: nuevos.length, versiones: vers.length, moderados };
 }
 
 async function manana() {
@@ -194,7 +236,7 @@ Deno.serve(async (req) => {
   if (req.headers.get('x-cron-key') !== CRON_KEY) return new Response('No autorizado', { status: 401 });
   const tarea = new URL(req.url).searchParams.get('tarea') || 'cada';
   try {
-    const out = tarea === 'manana' ? await manana() : tarea === 'noche' ? await noche() : await cada();
+    const out = tarea === 'manana' ? await manana() : tarea === 'noche' ? await noche() : tarea === 'limpieza' ? await limpieza() : await cada();
     return Response.json({ ok: true, tarea, ...out });
   } catch (e) {
     console.error(tarea, String(e));
