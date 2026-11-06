@@ -1,5 +1,5 @@
 // Service worker de Vial: funciona sin conexión (pantalla principal) y muestra notificaciones push.
-const CACHE = 'vial-v5';
+const CACHE = 'vial-v6';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'privacidad.html'];
 
 self.addEventListener('install', (e) => {

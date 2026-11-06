@@ -350,6 +350,11 @@ function enfocarReporte(id) {
   irA('mapa'); map.setView([r.lat, r.lng], 16);
   capaReportes.eachLayer((m) => { const ll = m.getLatLng(); if (ll.lat === r.lat && ll.lng === r.lng) m.openPopup(); });
 }
+// Abre Google Maps con la capa de tráfico en la zona que se ve (gratis: no usa la API de Google)
+function verTraficoGoogle() {
+  const c = map ? map.getCenter() : { lat: QUITO[0], lng: QUITO[1] }; const z = map ? map.getZoom() : 13;
+  window.open(`https://www.google.com/maps/@${c.lat.toFixed(5)},${c.lng.toFixed(5)},${z}z/data=!5m1!1e1`, '_blank', 'noopener');
+}
 function toggleCerca() { $('cerca').classList.toggle('hidden'); pintarCerca(); }
 function pintarCerca() {
   const el = $('cerca'); if (el.classList.contains('hidden')) return;
