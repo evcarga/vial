@@ -119,7 +119,9 @@ function resultadoPlaca(placa, nombre) {
   const d = ultimoDigito(placa);
   if (d === null) return '<div class="res no">Placa no válida</div>';
   const e = estadoDigito(d);
-  return `<div class="res ${e.libre ? 'si' : 'no'}">${nombre ? `<b>${esc(nombre)}</b> · ` : ''}${esc(placa)}<br>${e.libre ? '✅' : '⛔'} ${esc(e.txt)}</div>`;
+  // El pico y placa se decide por el ÚLTIMO número de la placa (PBA-123<b>4</b> → 4)
+  const marcada = esc(placa).replace(/(\d)(\D*)$/, '<u>$1</u>$2');
+  return `<div class="res ${e.libre ? 'si' : 'no'}">${nombre ? `<b>${esc(nombre)}</b> · ` : ''}${marcada} · termina en <b>${d}</b><br>${e.libre ? '✅' : '⛔'} ${esc(e.txt)}</div>`;
 }
 function pintarPlacaRapida() { const p = ls.get('placa'); if (p && !S.vehiculos.length) $('placa-resultado').innerHTML = resultadoPlaca(p); }
 $('form-placa').addEventListener('submit', (e) => {
