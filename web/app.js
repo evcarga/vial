@@ -523,18 +523,40 @@ async function cargarRanking() {
 }
 
 // =====================================================================
+// SUGERENCIAS (con o sin cuenta; WhatsApp opcional para ser contactado)
+// =====================================================================
+function abrirSugerencia() {
+  formulario('💡 Tu sugerencia', `
+    <p class="muted small">¿Qué mejorarías, qué falta o qué falló? Todo nos ayuda.</p>
+    <label>Sugerencia<textarea name="msg" rows="4" maxlength="1000" required></textarea></label>
+    ${S.user ? '' : '<label>Tu nombre (opcional)<input name="nombre" maxlength="40"></label>'}
+    <label>WhatsApp (opcional, solo si quieres que te contactemos)<input name="wa" inputmode="tel" maxlength="16" placeholder="09XXXXXXXX"></label>
+    <button class="btn full">Enviar</button>`, async (f) => {
+    const wa = f.wa.value.replace(/[^0-9+ ]/g, '').trim();
+    if (wa && !/^[0-9+ ]{9,16}$/.test(wa)) throw new Error('Número de WhatsApp no válido');
+    const nombre = S.user ? (S.perfil?.nombre || null) : (f.nombre.value.trim() || null);
+    const { error } = await sb.from('vial_sugerencias').insert({ mensaje: f.msg.value.trim(), nombre, whatsapp: wa || null });
+    if (error) throw error; toast('¡Gracias! Recibimos tu sugerencia');
+  });
+}
+
+// =====================================================================
 // ADMIN
 // =====================================================================
 let usuarios = [];
 async function cargarAdmin() {
-  const [rep, us, rad, fer, ver, tg] = await Promise.all([
+  const [rep, us, rad, fer, ver, tg, sug] = await Promise.all([
     sb.from('vial_reportes').select('id,tipo,zona,creado,expira,oculto,confirmaciones,negaciones,autor,origen').order('id', { ascending: false }).limit(40),
     sb.rpc('vial_admin_usuarios'),
     sb.from('vial_radares').select('*').order('aprobado').order('id', { ascending: false }),
     sb.from('vial_feriados').select('*').gte('fecha', isoQ(ahoraQ())).order('fecha'),
     sb.from('vial_app_versiones').select('*').order('version_code', { ascending: false }).limit(5),
     sb.from('vial_config').select('valor').eq('clave', 'telegram_bot').maybeSingle(),
+    sb.from('vial_sugerencias').select('*').order('leida').order('id', { ascending: false }).limit(50),
   ]);
+  const waLink = (n) => { let d = String(n).replace(/\D/g, ''); if (/^09\d{8}$/.test(d)) d = '593' + d.slice(1); return `https://wa.me/${d}`; };
+  $('adm-sugerencias').innerHTML = (sug.data || []).map((s) => `<div><span>${s.leida ? '' : '🆕 '}<b>${esc(s.nombre || 'Anónimo')}</b> · <span class="muted small">${haceTxt(s.creado)}</span><br>${esc(s.mensaje)}${s.whatsapp ? `<br><a href="${waLink(s.whatsapp)}" target="_blank" rel="noopener">📞 ${esc(s.whatsapp)}</a>` : ''}</span>
+    <span class="acc">${s.leida ? '' : `<button class="btn sm ghost" onclick="admLeida(${s.id})">Leída</button>`}<button class="btn sm danger" onclick="borrar('vial_sugerencias',${s.id},cargarAdmin)">✕</button></span></div>`).join('') || '<div class="vacio">Sin sugerencias</div>';
   $('adm-reportes').innerHTML = (rep.data || []).map((r) => {
     const activo = new Date(r.expira) > new Date();
     return `<div><span>${TIPOS[r.tipo].e} #${r.id} ${esc(r.zona || '')}<br><span class="muted small">${haceTxt(r.creado)} · ${esc(r.autor || '?')}${r.origen === 'telegram' ? ' (TG)' : ''} · 👍${r.confirmaciones} 👎${r.negaciones} · ${r.oculto ? 'OCULTO' : activo ? 'activo' : 'expirado'}</span></span>
@@ -552,6 +574,7 @@ function pintarUsuarios() {
   $('adm-usuarios').innerHTML = usuarios.filter((u) => !q || `${u.nombre} ${u.contacto}`.toLowerCase().includes(q)).slice(0, 50).map((u) => `<div><span><b>${esc(u.nombre || '—')}</b> ${u.bloqueado ? '⛔' : ''}<br><span class="muted small">${esc(u.contacto || '')} · ${u.reportes} reportes</span></span>
     <span class="acc"><button class="btn sm ghost" onclick="admPin('${u.user_id}')">PIN</button><button class="btn sm ${u.bloqueado ? '' : 'danger'}" onclick="admBloquear('${u.user_id}',${!u.bloqueado})">${u.bloqueado ? 'Desbloquear' : 'Bloquear'}</button></span></div>`).join('') || '<div class="vacio">Sin usuarios</div>';
 }
+async function admLeida(id) { const { error } = await sb.from('vial_sugerencias').update({ leida: true }).eq('id', id); if (error) toast(errTxt(error)); cargarAdmin(); }
 async function admOcultar(id, oc) { const { error } = await sb.rpc('vial_admin_ocultar', { p_reporte: id, p_oculto: oc }); if (error) toast(errTxt(error)); cargarAdmin(); cargarReportes(); }
 async function admBloquear(uid, b) { if (!confirm(b ? '¿Bloquear a este usuario? No podrá reportar.' : '¿Desbloquear?')) return; const { error } = await sb.rpc('vial_admin_bloquear', { p_user: uid, p_bloq: b }); if (error) toast(errTxt(error)); cargarAdmin(); }
 function admPin(uid) {

@@ -76,6 +76,7 @@
         <a class="btn ev-btn" href="https://evcarga.github.io/" target="_blank" rel="noopener">⚡ Mapa de cargadores</a>
         <button class="btn ghost" onclick="compartirApp()">📤 Compartir Vial</button>
       </div>
+      <button class="btn ghost full" onclick="abrirSugerencia()">💡 Enviar una sugerencia</button>
       <a id="btn-apk" class="btn amber full hidden" href="https://github.com/evcarga/vial/releases/latest/download/vial.apk">📲 Descargar app Android</a>
       <button id="btn-instalar" class="btn ghost full hidden">➕ Instalar en este teléfono</button>
     </div>
@@ -155,6 +156,10 @@
       <!-- ===== ADMIN ===== -->
       <div id="admin" class="hidden">
         <div class="card admin">
+          <h2>🛠️ Admin · Sugerencias</h2>
+          <div id="adm-sugerencias" class="lista"></div>
+        </div>
+        <div class="card admin">
           <h2>🛠️ Admin · Reportes</h2>
           <div id="adm-reportes" class="lista"></div>
         </div>
@@ -189,7 +194,7 @@
       </div>
     </div>
 
-    <p class="center small"><a href="privacidad.html">Privacidad y reglas</a> · <a href="https://evcarga.github.io/">EvCarga Ecuador</a></p>
+    <p class="center small"><a href="#" onclick="abrirSugerencia();return false">💡 Sugerencias</a> · <a href="privacidad.html">Privacidad y reglas</a> · <a href="https://evcarga.github.io/">EvCarga Ecuador</a></p>
   </section>
 </main>
 
