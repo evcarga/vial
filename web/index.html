@@ -59,7 +59,7 @@
     <div class="card" id="card-vencimientos">
       <div class="row between"><h2>Vencimientos</h2><button class="btn sm ghost" data-need-login onclick="abrirVencimiento()">+ Agregar</button></div>
       <div id="lista-vencimientos" class="lista"></div>
-      <p class="muted small">Te avisamos 15 y 3 días antes (notificación o Telegram).</p>
+      <p class="muted small">Te avisamos 15 y 3 días antes (notificación en el teléfono).</p>
     </div>
 
     <div class="card">
@@ -102,15 +102,15 @@
         <div class="sep"><span>o con PIN</span></div>
         <form id="form-auth">
           <label id="lbl-nombre" class="hidden">Primer nombre<input id="auth-nombre" maxlength="40" autocomplete="given-name"></label>
-          <label>Correo o WhatsApp<input id="auth-contacto" placeholder="tu@correo.com o 09XXXXXXXX" autocomplete="username" required></label>
-          <p class="muted small">¿No tienes correo? Escribe tu número de WhatsApp.</p>
+          <label>Correo o celular<input id="auth-contacto" placeholder="tu@correo.com o 09XXXXXXXX" autocomplete="username" required></label>
+          <p class="muted small">¿No tienes correo? Escribe tu número de celular.</p>
           <label>PIN de 4 dígitos<input id="auth-pin" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="current-password" required></label>
           <label id="lbl-pin2" class="hidden">Repite el PIN<input id="auth-pin2" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="new-password"></label>
           <div id="auth-error" class="error"></div>
           <button class="btn full" id="btn-auth">Ingresar</button>
         </form>
         <p class="center small"><a href="#" id="toggle-auth">¿Nuevo? Crear cuenta</a></p>
-        <p class="muted small">Solo pedimos tu primer nombre, tu correo o WhatsApp y un PIN. Tras 3 PIN incorrectos la cuenta se bloquea un tiempo.</p>
+        <p class="muted small">Solo pedimos tu primer nombre, tu correo o celular y un PIN. Tras 3 PIN incorrectos la cuenta se bloquea un tiempo.</p>
       </div>
     </div>
 
@@ -135,8 +135,8 @@
         <h2>Avisos</h2>
         <label class="switch"><input type="checkbox" id="sw-push"> Notificaciones en este teléfono</label>
         <label class="switch"><input type="checkbox" id="sw-noche"> Aviso la noche anterior (pico y placa y vencimientos)</label>
-        <div class="row between top-gap"><span>Telegram</span><button class="btn sm ghost" id="btn-telegram" onclick="vincularTelegram()">Vincular</button></div>
-        <p class="muted small" id="telegram-txt">Respaldo para iPhone o si prefieres Telegram.</p>
+        <div id="fila-telegram" class="hidden"><div class="row between top-gap"><span>Telegram (opcional)</span><button class="btn sm ghost" id="btn-telegram" onclick="vincularTelegram()">Vincular</button></div>
+        <p class="muted small" id="telegram-txt">Si prefieres recibir los avisos en Telegram.</p></div>
       </div>
 
       <div class="card">
@@ -173,7 +173,7 @@
           <div id="adm-feriados" class="lista"></div>
         </div>
         <div class="card admin">
-          <h2>🛠️ Admin · Telegram</h2>
+          <h2>🛠️ Admin · Telegram (opcional)</h2><p class="muted small">Déjalo vacío si no usas el bot. Todo funciona desde la app y la web.</p>
           <form id="form-tg" class="row"><input id="tg-bot" placeholder="usuario_del_bot (sin @)"><button class="btn sm">Guardar</button></form>
         </div>
         <div class="card admin">
@@ -184,7 +184,7 @@
             <label class="switch"><input type="checkbox" id="ver-obligatoria"> Actualización obligatoria</label>
             <button class="btn full amber">Compilar y enviar actualización</button>
           </form>
-          <p class="muted small">GitHub compila la APK (unos 5 min) y luego se avisa a todos por notificación y Telegram.</p>
+          <p class="muted small">GitHub compila la APK (unos 5 min) y luego se avisa a todos por notificación.</p>
         </div>
       </div>
     </div>
@@ -221,7 +221,7 @@
     <p class="muted small">🚫 Nada de fotos de heridos ni de rostros.</p>
     <div class="grid2">
       <button class="btn" id="env-guardar">Guardar</button>
-      <button class="btn wa" id="env-wa">Compartir al grupo</button>
+      <button class="btn ghost" id="env-wa">📤 Compartir</button>
     </div>
   </div>
 </div>

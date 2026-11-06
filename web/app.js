@@ -188,10 +188,12 @@ async function alCambiarSesion(session) {
   S.perfil = p || {};
   $('u-nombre').textContent = S.perfil.nombre || 'conductor';
   const em = S.user.email || '';
-  $('u-contacto').textContent = em.endsWith('@wa.vial.evcarga') ? `WhatsApp +${em.split('@')[0]}` : em;
+  $('u-contacto').textContent = em.endsWith('@wa.vial.evcarga') ? `Celular +${em.split('@')[0]}` : em;
   $('sw-noche').checked = S.perfil.aviso_noche !== false;
   $('btn-telegram').textContent = S.perfil.telegram_chat_id ? 'Desvincular' : 'Vincular';
-  $('telegram-txt').textContent = S.perfil.telegram_chat_id ? '✅ Recibes avisos por Telegram.' : 'Respaldo para iPhone o si prefieres Telegram.';
+  $('telegram-txt').textContent = S.perfil.telegram_chat_id ? '✅ Recibes avisos por Telegram.' : 'Si prefieres recibir los avisos en Telegram.';
+  const { data: bot } = await sb.from('vial_config').select('valor').eq('clave', 'telegram_bot').maybeSingle();
+  $('fila-telegram').classList.toggle('hidden', !bot && !S.perfil.telegram_chat_id);
   const { data: adm } = await sb.rpc('is_admin'); S.admin = !!adm;
   $('admin').classList.toggle('hidden', !S.admin);
   await Promise.all([cargarVehiculos(), cargarVencimientos(), cargarZonas(), cargarVotos()]);
@@ -199,7 +201,7 @@ async function alCambiarSesion(session) {
   if (document.querySelector('#tab-cuenta.active')) { cargarRanking(); if (S.admin) cargarAdmin(); }
   if (pendienteReportar) { const t = pendienteReportar; pendienteReportar = null; if (t !== true) reportar(t); else abrirReportar(); }
 }
-function requiereSesion() { if (S.user) return true; toast('Ingresa para continuar (solo nombre, correo o WhatsApp y PIN)'); irA('cuenta'); return false; }
+function requiereSesion() { if (S.user) return true; toast('Ingresa para continuar (solo nombre, correo o celular y PIN)'); irA('cuenta'); return false; }
 
 async function editarNombre() {
   formulario('Tu primer nombre', `<label>Primer nombre<input name="nombre" maxlength="40" required value="${esc(S.perfil.nombre || '')}"></label><button class="btn full">Guardar</button>`, async (f) => {
@@ -325,7 +327,7 @@ function popupHtml(r) {
     <p class="small">👍 ${r.confirmaciones} siguen · 👎 ${r.negaciones} ya no</p>
     <div class="row">${mio ? `<button class="btn sm danger" onclick="borrarReporte(${r.id})">Borrar</button>`
       : `<button class="btn sm ${voto === true ? '' : 'ghost'}" onclick="votar(${r.id},true)">✔ Sigue ahí</button><button class="btn sm ${voto === false ? '' : 'ghost'}" onclick="votar(${r.id},false)">✖ Ya no está</button>`}
-    <button class="btn sm wa" onclick="compartirReporte(${r.id})">WhatsApp</button></div></div>`;
+    <button class="btn sm ghost" onclick="compartirReporte(${r.id})">📤 Compartir</button></div></div>`;
 }
 function pintarReportes() {
   if (!capaReportes) { pintarCerca(); return; }
@@ -431,7 +433,12 @@ function compartirReporte(id, r0) {
   const r = r0 || S.reportes.find((x) => x.id === id); if (!r) return;
   const hora = new Date(r.creado).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' });
   const txt = `${TIPOS[r.tipo].e} *${TIPOS[r.tipo].n}*${r.zona ? ` en ${r.zona}` : ''} (${hora})\nMapa en vivo: ${SITE}?r=${r.id}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+  compartir('Vial Quito', txt);
+}
+// Compartir con la hoja nativa del teléfono; si no existe, copiar el texto
+function compartir(title, text) {
+  if (navigator.share) return navigator.share({ title, text }).catch(() => {});
+  navigator.clipboard?.writeText(text).then(() => toast('Texto copiado. Pégalo donde quieras.'), () => prompt('Copia este texto:', text));
 }
 async function votar(id, sigue) {
   if (!requiereSesion()) return;
@@ -604,8 +611,7 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); prom
 $('btn-instalar').addEventListener('click', async () => { if (!promptInstalar) return; promptInstalar.prompt(); await promptInstalar.userChoice; promptInstalar = null; $('btn-instalar').classList.add('hidden'); });
 function compartirApp() {
   const txt = `🚦 Vial Quito: pico y placa, vencimientos y reportes de tránsito en vivo.\n${SITE}\n⚡ Cargadores EV: https://evcarga.github.io/`;
-  if (navigator.share) navigator.share({ title: 'Vial Quito', text: txt }).catch(() => {});
-  else window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+  compartir('Vial Quito', txt);
 }
 
 // =====================================================================
